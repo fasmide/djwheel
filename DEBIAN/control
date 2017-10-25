@@ -1,0 +1,10 @@
+Package: djwheel
+Version: DEBVERSION
+Homepage: https://github.com/fasmide/djwheel
+Section: non-free
+Priority: optional
+Architecture: amd64
+Depends: libc6
+Maintainer: Kristian Mide <kristian@mide.dk>
+Description: djwheel
+ Software for djwheel device
