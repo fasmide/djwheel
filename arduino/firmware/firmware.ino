@@ -1,35 +1,38 @@
+// FastLED from http://fastled.io/
 #include "FastLED.h"
+// Encoder from https://www.pjrc.com/teensy/td_libs_Encoder.html
 #include <Encoder.h>
 
+// initialize vars for leds
 #define NUM_LEDS 26
 #define DATA_PIN 5
 CRGB leds[NUM_LEDS];
 
+// initialize encoder (pins 2 and 3)
 Encoder encoder(2, 3);
 long oldPosition  = -999;
 
-
-// This function sets up the ledsand tells the controller about them
 void setup() {
-    Serial.println("Basic Encoder Test:");
-   	delay(2000);
-    FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
 }
 
 void loop() {
+  // If there is data in our buffer, read a whole strip
+  if (Serial.available()) {
+    Serial.readBytes( (char*)leds, NUM_LEDS * 3);
+  }
 
-   // output buffer every 16 miliseconds
-   EVERY_N_MILLISECONDS(16) {
-       FastLED.show();
-       fadeToBlackBy(leds, NUM_LEDS, 10);
-   }
+  // output led buffer every 16 miliseconds
+  EVERY_N_MILLISECONDS(16) {
+    FastLED.show();
+    fadeToBlackBy(leds, NUM_LEDS, 10);
+  }
 
-   long newPosition = encoder.read();
-   if (newPosition != oldPosition) {
-     oldPosition = newPosition;
-     Serial.println(newPosition);
-     if (oldPosition >= 0 && oldPosition <= 500) {
-       leds[map(oldPosition, 0, 500, 0, 25)] = CRGB::White;
-     }
+  // read encoder position, if it moved send data.
+  // TODO: figureout somekind of debouncing (maybe it must move at least 2?)
+  long newPosition = encoder.read();
+  if (newPosition != oldPosition) {
+    oldPosition = newPosition;
+    Serial.println(newPosition);
   }
 }
