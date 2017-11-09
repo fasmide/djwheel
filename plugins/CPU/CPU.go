@@ -11,6 +11,7 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 )
 
+// CPU represents our current cpu color strip
 type CPU struct {
 	Strip     []colorful.Color
 	CPUColors []colorful.Color
@@ -21,6 +22,7 @@ func init() {
 	plugins.RegisterPlugin("cpu", NewCPU())
 }
 
+// NewCPU initializes CPU plugin
 func NewCPU() *CPU {
 	data, err := cpu.Times(true)
 
@@ -46,6 +48,7 @@ func NewCPU() *CPU {
 	return c
 }
 
+// Collect collects cpu stats and renders colors
 func (c *CPU) Collect() {
 	var data []cpu.TimesStat
 	var err error
@@ -83,10 +86,13 @@ func (c *CPU) Collect() {
 	}
 }
 
+// Priority is just fixed to 11
 func (c *CPU) Priority() int {
 	return 11
 }
 
+// FadeAllToBlack fades all colors a tiny bit against black
+// leaving a tails for all color "dots"
 func (c *CPU) FadeAllToBlack() {
 	for i, color := range c.Strip {
 		c.Strip[i] = color.BlendRgb(c.FadeColor, 0.15)
