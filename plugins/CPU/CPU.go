@@ -12,12 +12,9 @@ import (
 )
 
 type CPU struct {
-	Cores []Core
-}
-
-type Core struct {
-	color colorful.Color
-	busy  float64
+	Strip     []colorful.Color
+	CPUColors []colorful.Color
+	FadeColor colorful.Color
 }
 
 func init() {
@@ -31,33 +28,58 @@ func NewCPU() *CPU {
 		panic("[CPU] unable to initialize cpu plugin")
 	}
 
-	c := &CPU{Cores: make([]Core, len(data), len(data))}
+	c := &CPU{
+		Strip:     make([]colorful.Color, 26, 26),
+		CPUColors: make([]colorful.Color, len(data), len(data)),
+		FadeColor: colorful.LinearRgb(0, 0, 0),
+	}
 
-	for index, cpu := range data {
-		calc := (360 / len(data)) * index
-		color := colorful.Hsv(float64(calc), 1, 1)
-		c.Cores[index].color = color
-		c.Cores[index].busy = getAllBusy(cpu)
+	for index := range data {
 
+		rotation := (360 / len(data)) * index
+		color := colorful.Hsv(float64(rotation), 1, 1)
+		c.CPUColors[index] = color
 	}
 
 	go c.Collect()
+
 	return c
 }
 
 func (c *CPU) Collect() {
 	var data []cpu.TimesStat
 	var err error
+
+	// These positions is used to determinane if we need to blend colors togeather
+	// it is properly not a good way to do it as we cannot know if these positions
+	// are from the current loop, or the previous
+	lastPositions := make([]int, len(c.CPUColors), len(c.CPUColors))
+
 	for {
 		data, err = cpu.Times(true)
 		if err != nil {
-			log.Printf("[CPU] Unable to cputid")
+			log.Printf("[CPU] Unable to collect cpu usage")
 			return
 		}
+
+		// By fading all colors agent black, we get a trail
+		c.FadeAllToBlack()
+
 		for i, cpu := range data {
-			c.Cores[i].busy = getAllBusy(cpu) / 4
+			secPos := math.Mod((getAllBusy(cpu)/4)*100, 100)
+			pos := int(math.Mod(secPos, 26))
+
+			// If another cpu currently resides in this location, blend them togeather
+			if intInSlice(pos, lastPositions) {
+				c.Strip[pos] = c.Strip[pos].BlendHsv(c.CPUColors[i], 0.5)
+			} else {
+				c.Strip[pos] = c.CPUColors[i]
+			}
+
+			lastPositions[i] = pos
 		}
-		time.Sleep(10 * time.Millisecond)
+
+		time.Sleep(16 * time.Millisecond)
 	}
 }
 
@@ -65,22 +87,35 @@ func (c *CPU) Priority() int {
 	return 11
 }
 
+func (c *CPU) FadeAllToBlack() {
+	for i, color := range c.Strip {
+		c.Strip[i] = color.BlendRgb(c.FadeColor, 0.15)
+	}
+}
 func (c *CPU) Write(to io.Writer) {
 
-	b := make([]byte, 26*3)
-	for _, core := range c.Cores {
+	for _, color := range c.Strip {
 
-		secPos := math.Mod(core.busy*100, 100)
-		pos := int(math.Mod(secPos, 26)) * 3
-		b[pos] = byte(core.color.R * 255)
-		b[pos+1] = byte(core.color.G * 255)
-		b[pos+2] = byte(core.color.B * 255)
+		to.Write([]byte{
+			byte(color.R * 255),
+			byte(color.G * 255),
+			byte(color.B * 255),
+		})
 	}
-	to.Write(b)
 }
 
+// util to add all busy cpu time
 func getAllBusy(t cpu.TimesStat) float64 {
 	busy := t.User + t.System + t.Nice + t.Iowait + t.Irq +
 		t.Softirq + t.Steal + t.Guest + t.GuestNice + t.Stolen
 	return busy
+}
+
+func intInSlice(a int, list []int) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
