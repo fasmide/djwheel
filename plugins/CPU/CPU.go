@@ -1,7 +1,6 @@
 package cpu
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"math"
@@ -17,9 +16,8 @@ type CPU struct {
 }
 
 type Core struct {
-	pos   float64
 	color colorful.Color
-	idle  float64
+	busy  float64
 }
 
 func init() {
@@ -37,11 +35,9 @@ func NewCPU() *CPU {
 
 	for index, cpu := range data {
 		calc := (360 / len(data)) * index
-		log.Printf("%d", calc)
 		color := colorful.Hsv(float64(calc), 1, 1)
 		c.Cores[index].color = color
-		c.Cores[index].pos = float64(calc)
-		c.Cores[index].idle = cpu.Idle
+		c.Cores[index].busy = getAllBusy(cpu)
 
 	}
 
@@ -59,11 +55,7 @@ func (c *CPU) Collect() {
 			return
 		}
 		for i, cpu := range data {
-			diff := cpu.Idle - c.Cores[i].idle
-			fmt.Printf("%d: %f\n", i, diff)
-			c.Cores[i].pos += (diff)
-			c.Cores[i].pos = math.Mod(c.Cores[i].pos, 26)
-			c.Cores[i].idle = cpu.Idle
+			c.Cores[i].busy = getAllBusy(cpu) / 4
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -78,10 +70,17 @@ func (c *CPU) Write(to io.Writer) {
 	b := make([]byte, 26*3)
 	for _, core := range c.Cores {
 
-		pos := int(core.pos) * 3
+		secPos := math.Mod(core.busy*100, 100)
+		pos := int(math.Mod(secPos, 26)) * 3
 		b[pos] = byte(core.color.R * 255)
 		b[pos+1] = byte(core.color.G * 255)
 		b[pos+2] = byte(core.color.B * 255)
 	}
 	to.Write(b)
+}
+
+func getAllBusy(t cpu.TimesStat) float64 {
+	busy := t.User + t.System + t.Nice + t.Iowait + t.Irq +
+		t.Softirq + t.Steal + t.Guest + t.GuestNice + t.Stolen
+	return busy
 }
