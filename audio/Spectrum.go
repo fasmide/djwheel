@@ -23,6 +23,34 @@ type SpectrumEvent struct {
 	Right SpectrumChannel
 }
 
+func (s *SpectrumEvent) HasData() bool {
+
+	data := false
+	wg := sync.WaitGroup{}
+
+	check := func(c *SpectrumChannel) {
+		for _, v := range c.Power {
+			if v > 0 {
+				data = true
+				wg.Done()
+				return
+			}
+		}
+		wg.Done()
+	}
+
+	wg.Add(1)
+	check(&s.Left)
+
+	wg.Add(1)
+	check(&s.Right)
+
+	wg.Wait()
+
+	return data
+
+}
+
 type SpectrumChannel struct {
 	Power []float64
 	Freqs []float64

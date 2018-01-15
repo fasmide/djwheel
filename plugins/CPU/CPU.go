@@ -86,9 +86,9 @@ func (c *CPU) Collect() {
 	}
 }
 
-// Priority is just fixed to 11
+// Priority is just fixed to 5
 func (c *CPU) Priority() int {
-	return 11
+	return 5
 }
 
 // FadeAllToBlack fades all colors a tiny bit against black
