@@ -7,9 +7,11 @@ import (
 
 type Plugin interface {
 	Priority() int
-	Write(io.Writer)
+	WriteTo(io.Writer)
+	WheelEvent(int)
 }
 
+// plugins holds all registered plugins
 var plugins map[string]Plugin
 
 func init() {
@@ -21,12 +23,20 @@ func RegisterPlugin(n string, p Plugin) {
 	plugins[n] = p
 }
 
-func Write(to io.Writer) {
+func WriteTo(to io.Writer) {
 	// TODO We need a mixer
 	// TODO we should figure out what plugin is active
 	// for now, just spectrum
 
-	plugins[priorityPlugin()].Write(to)
+	plugins[priorityPlugin()].WriteTo(to)
+}
+
+func HandleWheelEvents(e chan int) {
+	for e := range e {
+		for _, p := range plugins {
+			p.WheelEvent(e)
+		}
+	}
 }
 
 func priorityPlugin() string {

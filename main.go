@@ -10,6 +10,7 @@ import (
 
 	_ "github.com/fasmide/djwheel/plugins/CPU"
 	_ "github.com/fasmide/djwheel/plugins/Spectrum"
+	_ "github.com/fasmide/djwheel/plugins/Volume"
 )
 
 func main() {
@@ -19,21 +20,15 @@ func main() {
 	volumeEvents := make(chan int)
 	device := device.NewDevice("/dev/ttyACM0", volumeEvents)
 	go device.Loop()
-	go HandleVolume(volumeEvents)
+	go plugins.HandleWheelEvents(volumeEvents)
 
 	var buffer bytes.Buffer
 	for {
-		plugins.Write(&buffer)
+		plugins.WriteTo(&buffer)
 		device.Write(buffer.Bytes())
 		buffer.Reset()
 		time.Sleep(16 * time.Millisecond)
 
 	}
 
-}
-
-func HandleVolume(e chan int) {
-	for e := range e {
-		log.Printf("Its time to turn this shit up to %d!", e)
-	}
 }

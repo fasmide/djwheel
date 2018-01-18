@@ -45,7 +45,7 @@ func (s *Spectrum) Priority() int {
 	return 1
 }
 
-func (s *Spectrum) Write(to io.Writer) {
+func (s *Spectrum) WriteTo(to io.Writer) {
 
 	if s.lastEvent == nil {
 		return
@@ -63,6 +63,12 @@ func (s *Spectrum) Write(to io.Writer) {
 		c := colorful.Hsv(value, 1, intens)
 		to.Write([]byte{byte(c.R * 255), byte(c.G * 255), byte(c.B * 255)})
 	}
+}
+
+// WheelEvent is just a placeholder for wheel events that
+// we dont use for anything
+func (s *Spectrum) WheelEvent(_ int) {
+
 }
 
 // Loop just reads all spectrum events and saves the latest

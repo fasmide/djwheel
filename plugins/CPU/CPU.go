@@ -98,7 +98,7 @@ func (c *CPU) FadeAllToBlack() {
 		c.Strip[i] = color.BlendRgb(c.FadeColor, 0.15)
 	}
 }
-func (c *CPU) Write(to io.Writer) {
+func (c *CPU) WriteTo(to io.Writer) {
 
 	for _, color := range c.Strip {
 
@@ -108,6 +108,11 @@ func (c *CPU) Write(to io.Writer) {
 			byte(color.B * 255),
 		})
 	}
+}
+
+// WheelEvent dosent do anything - we dont have a use for these
+func (c *CPU) WheelEvent(_ int) {
+
 }
 
 // util to add all busy cpu time
