@@ -66,7 +66,7 @@ func NewSpectrum(i *Input, rate int, logScale bool) *Spectrum {
 		make([]float64, rate/60),
 		spectral.PwelchOptions{
 			NFFT:      256,
-			Window:    window.Rectangular,
+			Window:    window.Hann,
 			Scale_off: false,
 		},
 	}
@@ -97,7 +97,7 @@ func (s *Spectrum) Loop(eventChan chan SpectrumEvent) {
 		wg.Wait()
 
 		eventChan <- SpectrumEvent{Left: left, Right: right}
-		// Render(power, freqs)
+		//Render(left.Power, left.Freqs)
 	}
 }
 
