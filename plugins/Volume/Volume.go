@@ -1,8 +1,10 @@
 package Volume
 
 import (
+	"fmt"
 	"io"
 	"log"
+	"os/exec"
 	"time"
 
 	"github.com/fasmide/djwheel/plugins"
@@ -13,8 +15,8 @@ func init() {
 	plugins.RegisterPlugin("volume", NewVolume())
 }
 
-const input_timeout = time.Second * 3
-const volume_timeout = time.Millisecond * 100
+const input_timeout = time.Second * 1
+const volume_timeout = time.Millisecond * 50
 
 type Volume struct {
 	// currentVolume: 0.0 == muted 1.0 == 100% volume
@@ -32,11 +34,43 @@ func NewVolume() *Volume {
 	// TODO: figure out what the current volume is instead of hardcoding 0.25
 	// pactl get-sink-volume alsa_output.pci-0000_00_1f.3.analog-stereo 0.05
 	// hah! we dont need to know the sinks name, we can just use @DEFAULT_SINK@
-	return &Volume{
+	v := Volume{
 		currentVolume: 0.25,
 		volumeTimeout: time.NewTimer(volume_timeout),
 		inputTimeout:  time.NewTimer(input_timeout),
 	}
+
+	// start goroutine to handle timeouts
+	go v.handleTimeouts()
+
+	return &v
+
+}
+
+func (v *Volume) handleTimeouts() {
+	for {
+		select {
+		case <-v.inputTimeout.C:
+			v.inputTimeout.Stop()
+			v.rendering = false
+		case <-v.volumeTimeout.C:
+			v.setSystemVolume()
+		}
+	}
+}
+
+func (v *Volume) setSystemVolume() {
+	cmd := exec.Command("pactl",
+		"set-sink-volume",
+		"@DEFAULT_SINK@",
+		fmt.Sprintf("%f", v.currentVolume),
+	)
+
+	err := cmd.Run()
+	if err != nil {
+		log.Printf("unable to change volume: %s", err)
+	}
+
 }
 
 func (v *Volume) Priority() int {
@@ -49,14 +83,12 @@ func (v *Volume) Priority() int {
 func (v *Volume) WheelEvent(pos int) {
 
 	// reset both timers
-	if !v.inputTimeout.Stop() {
-		<-v.inputTimeout.C
-	}
+	// Note: even when calling stop the timer could have already
+	// been fired - but in our case it does not really matter
+	v.inputTimeout.Stop()
 	v.inputTimeout.Reset(input_timeout)
 
-	if !v.volumeTimeout.Stop() {
-		<-v.volumeTimeout.C
-	}
+	v.volumeTimeout.Stop()
 	v.volumeTimeout.Reset(volume_timeout)
 
 	// change the volume
