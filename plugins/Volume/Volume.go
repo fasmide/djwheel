@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os/exec"
+	"sync"
 	"time"
 
 	"github.com/fasmide/djwheel/plugins"
@@ -15,10 +16,11 @@ func init() {
 	plugins.RegisterPlugin("volume", NewVolume())
 }
 
-const input_timeout = time.Second * 1
-const volume_timeout = time.Millisecond * 50
+const inputtimeout = time.Second * 1
+const volumetimeout = time.Millisecond * 50
 
 type Volume struct {
+	sync.RWMutex
 	// currentVolume: 0.0 == muted 1.0 == 100% volume
 	currentVolume   float64
 	currentPosition int
@@ -36,8 +38,8 @@ func NewVolume() *Volume {
 	// hah! we dont need to know the sinks name, we can just use @DEFAULT_SINK@
 	v := Volume{
 		currentVolume: 0.25,
-		volumeTimeout: time.NewTimer(volume_timeout),
-		inputTimeout:  time.NewTimer(input_timeout),
+		volumeTimeout: time.NewTimer(volumetimeout),
+		inputTimeout:  time.NewTimer(inputtimeout),
 	}
 
 	// start goroutine to handle timeouts
@@ -52,7 +54,9 @@ func (v *Volume) handleTimeouts() {
 		select {
 		case <-v.inputTimeout.C:
 			v.inputTimeout.Stop()
+			v.Lock()
 			v.rendering = false
+			v.Unlock()
 		case <-v.volumeTimeout.C:
 			v.setSystemVolume()
 		}
@@ -60,20 +64,23 @@ func (v *Volume) handleTimeouts() {
 }
 
 func (v *Volume) setSystemVolume() {
+	v.RLock()
 	cmd := exec.Command("pactl",
 		"set-sink-volume",
 		"@DEFAULT_SINK@",
-		fmt.Sprintf("%f", v.currentVolume),
+		fmt.Sprintf("%.0f%%", v.currentVolume*100),
 	)
 
-	err := cmd.Run()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("unable to change volume: %s", err)
+		log.Printf("unable to change volume: %s: %s", err, output)
 	}
-
+	v.RUnlock()
 }
 
 func (v *Volume) Priority() int {
+	v.RLock()
+	defer v.RUnlock()
 	if v.rendering {
 		return 11
 	}
@@ -82,14 +89,16 @@ func (v *Volume) Priority() int {
 
 func (v *Volume) WheelEvent(pos int) {
 
+	v.Lock()
+
 	// reset both timers
-	// Note: even when calling stop the timer could have already
+	// Note: when calling stop the timer could have already
 	// been fired - but in our case it does not really matter
 	v.inputTimeout.Stop()
-	v.inputTimeout.Reset(input_timeout)
+	v.inputTimeout.Reset(inputtimeout)
 
 	v.volumeTimeout.Stop()
-	v.volumeTimeout.Reset(volume_timeout)
+	v.volumeTimeout.Reset(volumetimeout)
 
 	// change the volume
 	if pos < v.currentPosition && v.currentVolume >= 0 {
@@ -104,11 +113,11 @@ func (v *Volume) WheelEvent(pos int) {
 
 	// enable rendering (well .. even if it already was...)
 	v.rendering = true
-	log.Printf("We have a new wheel position: %d, volume: %f", pos, v.currentVolume)
+	v.Unlock()
 }
 
 func (v *Volume) WriteTo(w io.Writer) {
-
+	v.RLock()
 	for i := 0; i < 26; i++ {
 		if v.currentVolume*26 >= float64(i) {
 			c := colorful.Hsv(v.currentVolume*150, 1, 0.5)
@@ -118,6 +127,7 @@ func (v *Volume) WriteTo(w io.Writer) {
 		w.Write([]byte{0x00, 0x00, 0x00})
 
 	}
+	v.RUnlock()
 }
 
 // time, begining value, change in value, duration
