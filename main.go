@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"log"
 	"time"
 
 	"github.com/fasmide/djwheel/device"
@@ -14,7 +13,6 @@ import (
 )
 
 func main() {
-	log.Printf("Hello")
 
 	// Initialize our physical usb device
 	volumeEvents := make(chan int)
