@@ -75,33 +75,39 @@ func NewSpectrum(i *Input, rate int, logScale bool) *Spectrum {
 	}
 }
 
-func (s *Spectrum) Loop(eventChan chan SpectrumEvent) {
+func (s *Spectrum) Loop() *SpectrumEvent {
 	var wg sync.WaitGroup
 	var event SpectrumEvent
-	for {
 
-		err := s.input.Read(s.left, s.right)
-		if err != nil {
-			panic(err)
+	go func() {
+		for {
+			err := s.input.Read(s.left, s.right)
+			if err != nil {
+				panic(err)
+			}
+
+			// event is shared with the spectrum plugin
+			// we must ensure its not reading from this event
+			event.Lock()
+			wg.Add(1)
+			go func() {
+				event.Left.Power, event.Left.Freqs = s.WriteSpectrum(s.left)
+				wg.Done()
+			}()
+
+			wg.Add(1)
+			go func() {
+				event.Right.Power, event.Right.Freqs = s.WriteSpectrum(s.right)
+				wg.Done()
+			}()
+
+			wg.Wait()
+			event.Unlock()
+			//Render(left.Power, left.Freqs)
 		}
+	}()
 
-		wg.Add(1)
-		go func() {
-			event.Left.Power, event.Left.Freqs = s.WriteSpectrum(s.left)
-			wg.Done()
-		}()
-
-		wg.Add(1)
-		go func() {
-			event.Right.Power, event.Right.Freqs = s.WriteSpectrum(s.right)
-			wg.Done()
-		}()
-
-		wg.Wait()
-
-		eventChan <- event
-		//Render(left.Power, left.Freqs)
-	}
+	return &event
 }
 
 func (s *Spectrum) WriteSpectrum(data []float64) ([]float64, []float64) {
