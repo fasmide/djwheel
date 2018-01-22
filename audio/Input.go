@@ -16,7 +16,7 @@ func NewInput(device string, bufferSize int) (*Input, error) {
 
 	//pacat --record -d alsa_output.pci-0000_00_1b.0.analog-stereo.monitor
 	// defaults to  rate 44100, signed-integer, little-endian, 16-bit and stereo
-	cmd := exec.Command("pacat", "--record", "-d", device)
+	cmd := exec.Command("pacat", "--record", "--latency-msec", "16", "-d", device)
 	pipe, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("Unable to get pipe from pacat: %s", err)
