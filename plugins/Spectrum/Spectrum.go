@@ -47,10 +47,11 @@ func (s *Spectrum) Priority() int {
 }
 
 func (s *Spectrum) WriteTo(to io.Writer) {
-	s.spectrum.RLock()
-	defer s.spectrum.RUnlock()
 	// we must ensure we are not writing new spectrum data into this Spectrum
 	// struct - woops this definitely got out of hand
+	s.spectrum.RLock()
+	defer s.spectrum.RUnlock()
+
 	if s.spectrum == nil {
 		return
 	}
