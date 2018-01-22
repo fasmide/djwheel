@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/fasmide/djwheel/plugins"
@@ -13,6 +14,7 @@ import (
 
 // CPU represents our current cpu color strip
 type CPU struct {
+	sync.RWMutex
 	Strip     []colorful.Color
 	CPUColors []colorful.Color
 	FadeColor colorful.Color
@@ -59,6 +61,7 @@ func (c *CPU) Collect() {
 	lastPositions := make([]int, len(c.CPUColors), len(c.CPUColors))
 
 	for {
+		c.Lock()
 		data, err = cpu.Times(true)
 		if err != nil {
 			log.Printf("[CPU] Unable to collect cpu usage")
@@ -81,7 +84,7 @@ func (c *CPU) Collect() {
 
 			lastPositions[i] = pos
 		}
-
+		c.Unlock()
 		time.Sleep(16 * time.Millisecond)
 	}
 }
@@ -99,7 +102,7 @@ func (c *CPU) FadeAllToBlack() {
 	}
 }
 func (c *CPU) WriteTo(to io.Writer) {
-
+	c.RLock()
 	for _, color := range c.Strip {
 
 		to.Write([]byte{
@@ -108,6 +111,7 @@ func (c *CPU) WriteTo(to io.Writer) {
 			byte(color.B * 255),
 		})
 	}
+	c.RUnlock()
 }
 
 // WheelEvent dosent do anything - we dont have a use for these
