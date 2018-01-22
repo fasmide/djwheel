@@ -56,13 +56,13 @@ func (s *Spectrum) WriteTo(to io.Writer) {
 	}
 
 	for index := 0; index < 13; index++ {
-		value := Map(float64(index), 0, 12, 0, 360)
+		value := Map(float64(index), 0, 12, 0, 320)
 		intens := Map(s.spectrum.Left.Power[index], 0, 90000, 0, 0.8) * 2
 		c := colorful.Hsv(value, 1, intens)
 		to.Write([]byte{byte(c.R * 255), byte(c.G * 255), byte(c.B * 255)})
 	}
 	for index := 12; index >= 0; index-- {
-		value := Map(float64(index), 0, 12, 0, 360)
+		value := Map(float64(index), 0, 12, 0, 320)
 		intens := Map(s.spectrum.Right.Power[index], 0, 90000, 0, 0.8) * 2
 		c := colorful.Hsv(value, 1, intens)
 		to.Write([]byte{byte(c.R * 255), byte(c.G * 255), byte(c.B * 255)})
