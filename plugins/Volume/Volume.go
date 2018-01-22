@@ -17,7 +17,7 @@ func init() {
 }
 
 const inputtimeout = time.Second * 1
-const volumetimeout = time.Millisecond * 50
+const volumetimeout = time.Millisecond * 100
 
 type Volume struct {
 	sync.RWMutex
@@ -25,11 +25,12 @@ type Volume struct {
 	currentVolume   float64
 	currentPosition int
 	rendering       bool
+	volumeChanged   bool
 	// when this fires - we will stop rendering
 	inputTimeout *time.Timer
 
 	// when this fires - we will set the volume
-	volumeTimeout *time.Timer
+	volumeTicker *time.Ticker
 }
 
 func NewVolume() *Volume {
@@ -38,7 +39,7 @@ func NewVolume() *Volume {
 	// hah! we dont need to know the sinks name, we can just use @DEFAULT_SINK@
 	v := Volume{
 		currentVolume: 0.25,
-		volumeTimeout: time.NewTimer(volumetimeout),
+		volumeTicker:  time.NewTicker(volumetimeout),
 		inputTimeout:  time.NewTimer(inputtimeout),
 	}
 
@@ -57,7 +58,7 @@ func (v *Volume) handleTimeouts() {
 			v.Lock()
 			v.rendering = false
 			v.Unlock()
-		case <-v.volumeTimeout.C:
+		case <-v.volumeTicker.C:
 			v.setSystemVolume()
 		}
 	}
@@ -65,6 +66,12 @@ func (v *Volume) handleTimeouts() {
 
 func (v *Volume) setSystemVolume() {
 	v.RLock()
+	defer v.RUnlock()
+
+	if !v.volumeChanged {
+		return
+	}
+
 	cmd := exec.Command("pactl",
 		"set-sink-volume",
 		"@DEFAULT_SINK@",
@@ -75,7 +82,8 @@ func (v *Volume) setSystemVolume() {
 	if err != nil {
 		log.Printf("unable to change volume: %s: %s", err, output)
 	}
-	v.RUnlock()
+
+	v.volumeChanged = false
 }
 
 func (v *Volume) Priority() int {
@@ -91,14 +99,10 @@ func (v *Volume) WheelEvent(pos int) {
 
 	v.Lock()
 
-	// reset both timers
-	// Note: when calling stop the timer could have already
-	// been fired - but in our case it does not really matter
+	// reset input timeout
+	// we dont care if its already fired
 	v.inputTimeout.Stop()
 	v.inputTimeout.Reset(inputtimeout)
-
-	v.volumeTimeout.Stop()
-	v.volumeTimeout.Reset(volumetimeout)
 
 	// change the volume
 	if pos < v.currentPosition && v.currentVolume >= 0 {
@@ -113,6 +117,7 @@ func (v *Volume) WheelEvent(pos int) {
 
 	// enable rendering (well .. even if it already was...)
 	v.rendering = true
+	v.volumeChanged = true
 	v.Unlock()
 }
 
