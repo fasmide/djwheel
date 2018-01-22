@@ -25,7 +25,7 @@ func main() {
 		plugins.WriteTo(&buffer)
 		device.Write(buffer.Bytes())
 		buffer.Reset()
-		time.Sleep(16 * time.Millisecond)
+		time.Sleep(time.Second / 60)
 
 	}
 
