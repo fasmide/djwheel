@@ -20,7 +20,7 @@ func init() {
 func NewSpectrum() *Spectrum {
 	s := &Spectrum{}
 	// Initialize our audio input TODO: figure out this alsa output at runtime
-	audioInput, err := audio.NewInput("alsa_output.pci-0000_00_1f.3.analog-stereo.monitor", 44100/60)
+	audioInput, err := audio.NewInput("@DEFAULT_MONITOR@", 44100/60)
 
 	if err != nil {
 		log.Fatalf("Unable to open audio input: %s", err)
