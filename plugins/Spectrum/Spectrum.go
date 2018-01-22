@@ -10,7 +10,7 @@ import (
 )
 
 type Spectrum struct {
-	lastEvent *audio.SpectrumEvent
+	spectrum *audio.SpectrumEvent
 }
 
 func init() {
@@ -27,57 +27,52 @@ func NewSpectrum() *Spectrum {
 	}
 
 	spectrum := audio.NewSpectrum(audioInput, 44100, false)
-	spectrumUpdates := make(chan audio.SpectrumEvent)
-	go spectrum.Loop(spectrumUpdates)
+	s.spectrum = spectrum.Loop()
 
-	go s.Loop(spectrumUpdates)
 	return s
 }
 
 func (s *Spectrum) Priority() int {
-	if s.lastEvent == nil {
+	if s.spectrum == nil {
 		return 1
 	}
 
-	if s.lastEvent.HasData() {
+	// hasdata does its own read Lock
+	// yeah it's gone mad this locking fix
+	if s.spectrum.HasData() {
 		return 10
 	}
+
 	return 1
 }
 
 func (s *Spectrum) WriteTo(to io.Writer) {
-
-	if s.lastEvent == nil {
-
+	s.spectrum.RLock()
+	defer s.spectrum.RUnlock()
+	// we must ensure we are not writing new spectrum data into this Spectrum
+	// struct - woops this definitely got out of hand
+	if s.spectrum == nil {
 		return
 	}
 
 	for index := 0; index < 13; index++ {
 		value := Map(float64(index), 0, 12, 0, 360)
-		intens := Map(s.lastEvent.Left.Power[index], 0, 90000, 0, 0.8) * 2
+		intens := Map(s.spectrum.Left.Power[index], 0, 90000, 0, 0.8) * 2
 		c := colorful.Hsv(value, 1, intens)
 		to.Write([]byte{byte(c.R * 255), byte(c.G * 255), byte(c.B * 255)})
 	}
 	for index := 12; index >= 0; index-- {
 		value := Map(float64(index), 0, 12, 0, 360)
-		intens := Map(s.lastEvent.Right.Power[index], 0, 90000, 0, 0.8) * 2
+		intens := Map(s.spectrum.Right.Power[index], 0, 90000, 0, 0.8) * 2
 		c := colorful.Hsv(value, 1, intens)
 		to.Write([]byte{byte(c.R * 255), byte(c.G * 255), byte(c.B * 255)})
 	}
-
 }
 
 // WheelEvent is just a placeholder for wheel events that
 // we dont use for anything
 func (s *Spectrum) WheelEvent(_ int) {
 
-}
-
-// Loop just reads all spectrum events and saves the latest
-func (s *Spectrum) Loop(updates chan audio.SpectrumEvent) {
-	for e := range updates {
-		s.lastEvent = &e
-	}
 }
 
 func Map(x, inMin, inMax, outMin, outMax float64) float64 {
