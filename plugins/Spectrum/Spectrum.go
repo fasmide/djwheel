@@ -48,6 +48,7 @@ func (s *Spectrum) Priority() int {
 func (s *Spectrum) WriteTo(to io.Writer) {
 
 	if s.lastEvent == nil {
+
 		return
 	}
 
@@ -63,6 +64,7 @@ func (s *Spectrum) WriteTo(to io.Writer) {
 		c := colorful.Hsv(value, 1, intens)
 		to.Write([]byte{byte(c.R * 255), byte(c.G * 255), byte(c.B * 255)})
 	}
+
 }
 
 // WheelEvent is just a placeholder for wheel events that
@@ -75,7 +77,6 @@ func (s *Spectrum) WheelEvent(_ int) {
 func (s *Spectrum) Loop(updates chan audio.SpectrumEvent) {
 	for e := range updates {
 		s.lastEvent = &e
-
 	}
 }
 

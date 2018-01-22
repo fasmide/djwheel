@@ -19,19 +19,21 @@ type Spectrum struct {
 }
 
 type SpectrumEvent struct {
+	sync.RWMutex
 	Left  SpectrumChannel
 	Right SpectrumChannel
 }
 
 func (s *SpectrumEvent) HasData() bool {
+	s.RLock()
+	defer s.RUnlock()
 
-	data := false
 	wg := sync.WaitGroup{}
 
-	check := func(c *SpectrumChannel) {
+	check := func(c *SpectrumChannel, data *bool) {
 		for _, v := range c.Power {
 			if v > 0 {
-				data = true
+				*data = true
 				wg.Done()
 				return
 			}
@@ -39,15 +41,16 @@ func (s *SpectrumEvent) HasData() bool {
 		wg.Done()
 	}
 
+	left := false
 	wg.Add(1)
-	check(&s.Left)
+	go check(&s.Left, &left)
 
+	right := false
 	wg.Add(1)
-	check(&s.Right)
+	go check(&s.Right, &right)
 
 	wg.Wait()
-
-	return data
+	return left || right
 
 }
 
@@ -74,7 +77,7 @@ func NewSpectrum(i *Input, rate int, logScale bool) *Spectrum {
 
 func (s *Spectrum) Loop(eventChan chan SpectrumEvent) {
 	var wg sync.WaitGroup
-	var left, right SpectrumChannel
+	var event SpectrumEvent
 	for {
 
 		err := s.input.Read(s.left, s.right)
@@ -84,19 +87,19 @@ func (s *Spectrum) Loop(eventChan chan SpectrumEvent) {
 
 		wg.Add(1)
 		go func() {
-			left.Power, left.Freqs = s.WriteSpectrum(s.left)
+			event.Left.Power, event.Left.Freqs = s.WriteSpectrum(s.left)
 			wg.Done()
 		}()
 
 		wg.Add(1)
 		go func() {
-			right.Power, right.Freqs = s.WriteSpectrum(s.right)
+			event.Right.Power, event.Right.Freqs = s.WriteSpectrum(s.right)
 			wg.Done()
 		}()
 
 		wg.Wait()
 
-		eventChan <- SpectrumEvent{Left: left, Right: right}
+		eventChan <- event
 		//Render(left.Power, left.Freqs)
 	}
 }
