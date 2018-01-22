@@ -19,7 +19,7 @@ func init() {
 
 func NewSpectrum() *Spectrum {
 	s := &Spectrum{}
-	// Initialize our audio input TODO: figure out this alsa output at runtime
+	// Initialize our audio input
 	audioInput, err := audio.NewInput("@DEFAULT_MONITOR@", 44100/60)
 
 	if err != nil {
