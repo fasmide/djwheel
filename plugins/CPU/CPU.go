@@ -41,7 +41,7 @@ func NewCPU() *CPU {
 	for index := range data {
 
 		rotation := (360 / len(data)) * index
-		color := colorful.Hsv(float64(rotation), 1, 1)
+		color := colorful.Hsv(float64(rotation), 1, 0.8)
 		c.CPUColors[index] = color
 	}
 
