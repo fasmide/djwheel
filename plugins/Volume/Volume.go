@@ -18,6 +18,7 @@ func init() {
 
 const inputtimeout = time.Second * 1
 const volumetimeout = time.Millisecond * 100
+const maxVolume = 0.55
 
 type Volume struct {
 	sync.RWMutex
@@ -108,7 +109,7 @@ func (v *Volume) WheelEvent(pos int) {
 	if pos < v.currentPosition && v.currentVolume >= 0 {
 		v.currentVolume -= 0.002
 	}
-	if pos > v.currentPosition && v.currentVolume <= 1 {
+	if pos > v.currentPosition && v.currentVolume <= maxVolume {
 		v.currentVolume += 0.002
 	}
 
